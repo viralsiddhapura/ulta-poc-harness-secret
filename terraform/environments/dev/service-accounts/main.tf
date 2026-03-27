@@ -44,9 +44,9 @@ provider "confluent" {
 
 provider "google" {
   # Credentials injected via GOOGLE_APPLICATION_CREDENTIALS env var
-  # or via gcp_credentials_json variable
-  project     = var.gcp_project_id
-  credentials = var.gcp_bootstrap_credentials_json != "" ? var.gcp_bootstrap_credentials_json : null
+  project = var.gcp_project_id
+  # Note: Using GOOGLE_APPLICATION_CREDENTIALS env var for credentials
+  # to avoid Terraform crash with sensitive values in conditionals
 }
 
 # -----------------------------------------------------------------------------
