@@ -1,0 +1,28 @@
+# =============================================================================
+# Example terraform.tfvars for Service Accounts Deployment
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit the actual terraform.tfvars file!
+# =============================================================================
+
+# Confluent Cloud Configuration
+confluent_environment_id   = "env-xxxxx"      # Your Confluent environment ID
+confluent_kafka_cluster_id = "lkc-xxxxx"      # Your Kafka cluster ID
+
+# Service Account Names
+confluent_service_account_name = "pubsub-connector-sa-dev"
+connector_name                 = "gcp-pubsub-source-dev"
+kafka_topic                    = "pubsub.gcp_input_dev"
+
+# GCP Configuration
+gcp_project_id                   = "your-gcp-project-id"
+gcp_service_account_id           = "confluent-pubsub-reader-dev"
+gcp_service_account_display_name = "Confluent Pub/Sub Reader (Dev)"
+pubsub_subscription_id           = "your-pubsub-subscription"
+gcp_grant_project_viewer         = false
+
+# =============================================================================
+# SENSITIVE VALUES - These should be injected by Harness, not stored here!
+# =============================================================================
+# confluent_cloud_api_key        = "INJECTED_BY_HARNESS"
+# confluent_cloud_api_secret     = "INJECTED_BY_HARNESS"
+# gcp_bootstrap_credentials_json = "INJECTED_BY_HARNESS"

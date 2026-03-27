@@ -1,0 +1,28 @@
+# =============================================================================
+# Example terraform.tfvars for Connector Deployment
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit the actual terraform.tfvars file!
+# =============================================================================
+
+# Confluent Cloud Configuration
+confluent_environment_id   = "env-xxxxx"      # Your Confluent environment ID
+confluent_kafka_cluster_id = "lkc-xxxxx"      # Your Kafka cluster ID
+
+# Connector Configuration
+connector_name     = "gcp-pubsub-source-dev"
+kafka_topic        = "pubsub.gcp_input_dev"
+tasks_max          = 1
+output_data_format = "JSON"
+
+# GCP Configuration
+gcp_project_id         = "your-gcp-project-id"
+pubsub_subscription_id = "your-pubsub-subscription"
+
+# =============================================================================
+# SENSITIVE VALUES - These are injected by Harness from Pipeline 1 outputs!
+# =============================================================================
+# confluent_cloud_api_key    = "INJECTED_BY_HARNESS"
+# confluent_cloud_api_secret = "INJECTED_BY_HARNESS"
+# gcp_credentials_base64     = "INJECTED_BY_HARNESS (from Pipeline 1)"
+# kafka_api_key              = "INJECTED_BY_HARNESS (from Pipeline 1)"
+# kafka_api_secret           = "INJECTED_BY_HARNESS (from Pipeline 1)"
