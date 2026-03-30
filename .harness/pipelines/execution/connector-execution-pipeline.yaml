@@ -1,34 +1,34 @@
 pipeline:
   name: GCP PubSub Connector Execution
   identifier: gcp_pubsub_connector_execution
-  projectIdentifier: harnesssecretterraformgithubpoc
-  orgIdentifier: default
+  projectIdentifier: <YOUR_PROJECT_IDENTIFIER>
+  orgIdentifier: <YOUR_ORG_IDENTIFIER>
   description: Deploys GCP Pub/Sub Source Connector to Confluent Cloud
 
   variables:
     - name: confluent_environment_id
       type: String
-      description: "Confluent Environment ID"
+      description: "Confluent Environment ID (e.g., env-xxxxx)"
       required: true
-      value: env-o6nrg9
+      value: <+input>
 
     - name: confluent_kafka_cluster_id
       type: String
-      description: "Confluent Kafka Cluster ID"
+      description: "Confluent Kafka Cluster ID (e.g., lkc-xxxxx)"
       required: true
-      value: lkc-o0gj0x
+      value: <+input>
 
     - name: connector_name
       type: String
       description: "Connector name"
       required: true
-      value: gcp-pubsub-source
+      value: <+input>
 
     - name: kafka_topic
       type: String
-      description: "Target Kafka topic"
+      description: "Target Kafka topic name"
       required: true
-      value: ulta.ei.kafka.gcp.pubsub.source.topic
+      value: <+input>
 
     - name: tasks_max
       type: Number
@@ -38,7 +38,7 @@ pipeline:
 
     - name: output_data_format
       type: String
-      description: "Output format"
+      description: "Output format (JSON, AVRO, PROTOBUF)"
       required: false
       value: JSON
 
@@ -46,19 +46,19 @@ pipeline:
       type: String
       description: "GCP Project ID"
       required: true
-      value: coastal-pointer-461217-c8
+      value: <+input>
 
     - name: pubsub_topic_id
       type: String
       description: "GCP Pub/Sub Topic ID"
       required: true
-      value: ulta-ei-kafka-gcp-pub-sub-test-topic
+      value: <+input>
 
     - name: pubsub_subscription_id
       type: String
       description: "GCP Pub/Sub Subscription ID"
       required: true
-      value: ulta-ei-kafka-gcp-pub-sub-test-topic-sub
+      value: <+input>
 
   stages:
     # =========================================================================
@@ -98,7 +98,7 @@ pipeline:
 
                           # Clone repository
                           echo "Cloning repository..."
-                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
+                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/<YOUR_ORG>/<YOUR_REPO>.git repo
                           cd repo/terraform/environments/dev/connector
 
                           # Unset any Confluent provider env vars to avoid conflicts
@@ -228,7 +228,7 @@ pipeline:
 
                           # Clone repository
                           echo "Cloning repository..."
-                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
+                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/<YOUR_ORG>/<YOUR_REPO>.git repo
                           cd repo/terraform/environments/dev/connector
 
                           # Unset any Confluent provider env vars to avoid conflicts

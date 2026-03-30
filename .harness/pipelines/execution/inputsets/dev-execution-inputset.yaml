@@ -1,24 +1,19 @@
 inputSet:
   name: Dev Environment Execution
   identifier: dev_execution_inputset
-  orgIdentifier: <+org.identifier>
-  projectIdentifier: <+org.identifier>_project
+  orgIdentifier: <YOUR_ORG_IDENTIFIER>
+  projectIdentifier: <YOUR_PROJECT_IDENTIFIER>
   pipeline:
     identifier: gcp_pubsub_connector_execution
     variables:
-      # Environment
-      - name: environment
-        type: String
-        value: dev
-
       # Confluent Cloud Configuration
       - name: confluent_environment_id
         type: String
-        value: env-xxxxx  # Replace with your environment ID
+        value: <YOUR_CONFLUENT_ENVIRONMENT_ID>  # e.g., env-xxxxx
 
       - name: confluent_kafka_cluster_id
         type: String
-        value: lkc-xxxxx  # Replace with your cluster ID
+        value: <YOUR_KAFKA_CLUSTER_ID>  # e.g., lkc-xxxxx
 
       # Connector Configuration
       - name: connector_name
@@ -27,7 +22,7 @@ inputSet:
 
       - name: kafka_topic
         type: String
-        value: your-kafka-topic  # Replace with target topic
+        value: <YOUR_KAFKA_TOPIC>  # e.g., my.events.topic
 
       - name: tasks_max
         type: Number
@@ -40,30 +35,12 @@ inputSet:
       # GCP Configuration
       - name: gcp_project_id
         type: String
-        value: your-gcp-project-id  # Replace with your GCP project
+        value: <YOUR_GCP_PROJECT_ID>  # e.g., my-gcp-project
+
+      - name: pubsub_topic_id
+        type: String
+        value: <YOUR_PUBSUB_TOPIC_ID>  # e.g., my-pubsub-topic
 
       - name: pubsub_subscription_id
         type: String
-        value: your-subscription-id  # Replace with your subscription
-
-      # Secret References - these should match your Harness secret identifiers
-      # The platform team should have created these secrets
-      - name: secret_confluent_api_key
-        type: String
-        value: confluent_cloud_api_key
-
-      - name: secret_confluent_api_secret
-        type: String
-        value: confluent_cloud_api_secret
-
-      - name: secret_kafka_api_key
-        type: String
-        value: connector_kafka_api_key
-
-      - name: secret_kafka_api_secret
-        type: String
-        value: connector_kafka_api_secret
-
-      - name: secret_gcp_credentials
-        type: String
-        value: gcp_pubsub_credentials_base64
+        value: <YOUR_PUBSUB_SUBSCRIPTION_ID>  # e.g., my-subscription
