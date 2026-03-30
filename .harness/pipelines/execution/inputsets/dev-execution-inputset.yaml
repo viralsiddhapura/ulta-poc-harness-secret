@@ -1,0 +1,69 @@
+inputSet:
+  name: Dev Environment Execution
+  identifier: dev_execution_inputset
+  orgIdentifier: <+org.identifier>
+  projectIdentifier: <+org.identifier>_project
+  pipeline:
+    identifier: gcp_pubsub_connector_execution
+    variables:
+      # Environment
+      - name: environment
+        type: String
+        value: dev
+
+      # Confluent Cloud Configuration
+      - name: confluent_environment_id
+        type: String
+        value: env-xxxxx  # Replace with your environment ID
+
+      - name: confluent_kafka_cluster_id
+        type: String
+        value: lkc-xxxxx  # Replace with your cluster ID
+
+      # Connector Configuration
+      - name: connector_name
+        type: String
+        value: gcp-pubsub-source-dev
+
+      - name: kafka_topic
+        type: String
+        value: your-kafka-topic  # Replace with target topic
+
+      - name: tasks_max
+        type: Number
+        value: 1
+
+      - name: output_data_format
+        type: String
+        value: JSON
+
+      # GCP Configuration
+      - name: gcp_project_id
+        type: String
+        value: your-gcp-project-id  # Replace with your GCP project
+
+      - name: pubsub_subscription_id
+        type: String
+        value: your-subscription-id  # Replace with your subscription
+
+      # Secret References - these should match your Harness secret identifiers
+      # The platform team should have created these secrets
+      - name: secret_confluent_api_key
+        type: String
+        value: confluent_cloud_api_key
+
+      - name: secret_confluent_api_secret
+        type: String
+        value: confluent_cloud_api_secret
+
+      - name: secret_kafka_api_key
+        type: String
+        value: connector_kafka_api_key
+
+      - name: secret_kafka_api_secret
+        type: String
+        value: connector_kafka_api_secret
+
+      - name: secret_gcp_credentials
+        type: String
+        value: gcp_pubsub_credentials_base64

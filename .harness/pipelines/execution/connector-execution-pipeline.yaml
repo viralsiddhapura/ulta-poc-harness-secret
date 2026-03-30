@@ -1,0 +1,279 @@
+pipeline:
+  name: GCP PubSub Connector Execution
+  identifier: gcp_pubsub_connector_execution
+  projectIdentifier: harnesssecretterraformgithubpoc
+  orgIdentifier: default
+  description: Deploys GCP Pub/Sub Source Connector to Confluent Cloud
+
+  variables:
+    - name: confluent_environment_id
+      type: String
+      description: "Confluent Environment ID"
+      required: true
+      value: env-o6nrg9
+
+    - name: confluent_kafka_cluster_id
+      type: String
+      description: "Confluent Kafka Cluster ID"
+      required: true
+      value: lkc-o0gj0x
+
+    - name: connector_name
+      type: String
+      description: "Connector name"
+      required: true
+      value: gcp-pubsub-source
+
+    - name: kafka_topic
+      type: String
+      description: "Target Kafka topic"
+      required: true
+      value: ulta.ei.kafka.gcp.pubsub.source.topic
+
+    - name: tasks_max
+      type: Number
+      description: "Max connector tasks (1-10)"
+      required: false
+      value: 1
+
+    - name: output_data_format
+      type: String
+      description: "Output format"
+      required: false
+      value: JSON
+
+    - name: gcp_project_id
+      type: String
+      description: "GCP Project ID"
+      required: true
+      value: coastal-pointer-461217-c8
+
+    - name: pubsub_subscription_id
+      type: String
+      description: "GCP Pub/Sub Subscription ID"
+      required: true
+      value: ulta-ei-kafka-gcp-pub-sub-test-topic-sub
+
+  stages:
+    # =========================================================================
+    # Stage 1: Terraform Plan
+    # =========================================================================
+    - stage:
+        name: Terraform Plan
+        identifier: terraform_plan
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Clone and Plan
+                  identifier: clone_and_plan
+                  type: ShellScript
+                  timeout: 10m
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          set -e
+                          echo "============================================"
+                          echo "GCP Pub/Sub Connector - Terraform Plan"
+                          echo "============================================"
+                          echo "Connector: <+pipeline.variables.connector_name>"
+                          echo "Kafka Topic: <+pipeline.variables.kafka_topic>"
+                          echo "GCP Project: <+pipeline.variables.gcp_project_id>"
+                          echo "============================================"
+
+                          # Working directory
+                          WORK_DIR="/tmp/tf-$RANDOM"
+                          mkdir -p $WORK_DIR && cd $WORK_DIR
+
+                          # Clone repository
+                          echo "Cloning repository..."
+                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
+                          cd repo/terraform/environments/dev/connector
+
+                          # Export Terraform variables
+                          export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
+                          export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
+                          export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
+                          export TF_VAR_kafka_api_secret="$KAFKA_API_SECRET"
+                          export TF_VAR_confluent_environment_id="<+pipeline.variables.confluent_environment_id>"
+                          export TF_VAR_confluent_kafka_cluster_id="<+pipeline.variables.confluent_kafka_cluster_id>"
+                          export TF_VAR_connector_name="<+pipeline.variables.connector_name>"
+                          export TF_VAR_kafka_topic="<+pipeline.variables.kafka_topic>"
+                          export TF_VAR_tasks_max="<+pipeline.variables.tasks_max>"
+                          export TF_VAR_output_data_format="<+pipeline.variables.output_data_format>"
+                          export TF_VAR_gcp_project_id="<+pipeline.variables.gcp_project_id>"
+                          export TF_VAR_pubsub_subscription_id="<+pipeline.variables.pubsub_subscription_id>"
+
+                          # Handle GCP credentials - base64 encode if needed
+                          if echo "$GCP_CREDS" | base64 -d 2>/dev/null | grep -q "project_id"; then
+                            export TF_VAR_gcp_credentials_base64="$GCP_CREDS"
+                          else
+                            export TF_VAR_gcp_credentials_base64=$(echo "$GCP_CREDS" | base64 | tr -d '\n')
+                          fi
+
+                          # Terraform init and plan
+                          echo ""
+                          echo "Initializing Terraform..."
+                          terraform init -input=false -no-color
+
+                          echo ""
+                          echo "Running Terraform Plan..."
+                          terraform plan -input=false -no-color
+
+                          echo ""
+                          echo "============================================"
+                          echo "Plan complete - review and approve to deploy"
+                          echo "============================================"
+                    environmentVariables:
+                      - name: GITHUB_TOKEN
+                        type: Secret
+                        value: github-token
+                      - name: CONFLUENT_API_KEY
+                        type: Secret
+                        value: confluent_cloud_api_key
+                      - name: CONFLUENT_API_SECRET
+                        type: Secret
+                        value: confluent_cloud_api_secret
+                      - name: KAFKA_API_KEY
+                        type: Secret
+                        value: connector_kafka_api_key
+                      - name: KAFKA_API_SECRET
+                        type: Secret
+                        value: connector_kafka_api_secret
+                      - name: GCP_CREDS
+                        type: Secret
+                        value: gcp_bootstrap_credentials_json
+        delegateSelectors:
+          - terraform-delegate
+
+    # =========================================================================
+    # Stage 2: Approval
+    # =========================================================================
+    - stage:
+        name: Approval
+        identifier: approval
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Approve Deployment
+                  identifier: approve
+                  type: HarnessApproval
+                  timeout: 1d
+                  spec:
+                    approvalMessage: |
+                      Approve connector deployment?
+
+                      Connector: <+pipeline.variables.connector_name>
+                      Kafka Topic: <+pipeline.variables.kafka_topic>
+                      GCP Project: <+pipeline.variables.gcp_project_id>
+                      Subscription: <+pipeline.variables.pubsub_subscription_id>
+                    includePipelineExecutionHistory: true
+                    approvers:
+                      userGroups:
+                        - _project_all_users
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+
+    # =========================================================================
+    # Stage 3: Terraform Apply
+    # =========================================================================
+    - stage:
+        name: Terraform Apply
+        identifier: terraform_apply
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Deploy Connector
+                  identifier: deploy_connector
+                  type: ShellScript
+                  timeout: 15m
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          set -e
+                          echo "============================================"
+                          echo "Deploying GCP Pub/Sub Connector"
+                          echo "============================================"
+
+                          # Working directory
+                          WORK_DIR="/tmp/tf-$RANDOM"
+                          mkdir -p $WORK_DIR && cd $WORK_DIR
+
+                          # Clone repository
+                          echo "Cloning repository..."
+                          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
+                          cd repo/terraform/environments/dev/connector
+
+                          # Export Terraform variables
+                          export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
+                          export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
+                          export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
+                          export TF_VAR_kafka_api_secret="$KAFKA_API_SECRET"
+                          export TF_VAR_confluent_environment_id="<+pipeline.variables.confluent_environment_id>"
+                          export TF_VAR_confluent_kafka_cluster_id="<+pipeline.variables.confluent_kafka_cluster_id>"
+                          export TF_VAR_connector_name="<+pipeline.variables.connector_name>"
+                          export TF_VAR_kafka_topic="<+pipeline.variables.kafka_topic>"
+                          export TF_VAR_tasks_max="<+pipeline.variables.tasks_max>"
+                          export TF_VAR_output_data_format="<+pipeline.variables.output_data_format>"
+                          export TF_VAR_gcp_project_id="<+pipeline.variables.gcp_project_id>"
+                          export TF_VAR_pubsub_subscription_id="<+pipeline.variables.pubsub_subscription_id>"
+
+                          # Handle GCP credentials
+                          if echo "$GCP_CREDS" | base64 -d 2>/dev/null | grep -q "project_id"; then
+                            export TF_VAR_gcp_credentials_base64="$GCP_CREDS"
+                          else
+                            export TF_VAR_gcp_credentials_base64=$(echo "$GCP_CREDS" | base64 | tr -d '\n')
+                          fi
+
+                          # Terraform init and apply
+                          echo "Initializing Terraform..."
+                          terraform init -input=false -no-color
+
+                          echo ""
+                          echo "Applying Terraform..."
+                          terraform apply -input=false -no-color -auto-approve
+
+                          echo ""
+                          echo "============================================"
+                          echo "DEPLOYMENT COMPLETE"
+                          echo "============================================"
+                          echo "Connector ID: $(terraform output -raw connector_id 2>/dev/null || echo 'N/A')"
+                          echo "Connector Name: $(terraform output -raw connector_name 2>/dev/null || echo 'N/A')"
+                          echo ""
+                          echo "Data Flow:"
+                          echo "  GCP Pub/Sub → Connector → Kafka Topic"
+                          echo "============================================"
+                    environmentVariables:
+                      - name: GITHUB_TOKEN
+                        type: Secret
+                        value: github-token
+                      - name: CONFLUENT_API_KEY
+                        type: Secret
+                        value: confluent_cloud_api_key
+                      - name: CONFLUENT_API_SECRET
+                        type: Secret
+                        value: confluent_cloud_api_secret
+                      - name: KAFKA_API_KEY
+                        type: Secret
+                        value: connector_kafka_api_key
+                      - name: KAFKA_API_SECRET
+                        type: Secret
+                        value: connector_kafka_api_secret
+                      - name: GCP_CREDS
+                        type: Secret
+                        value: gcp_bootstrap_credentials_json
+        delegateSelectors:
+          - terraform-delegate

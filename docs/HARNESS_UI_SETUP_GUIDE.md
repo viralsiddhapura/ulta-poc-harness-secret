@@ -232,36 +232,64 @@ docker run -d --name harness-delegate \
 
 ### 4.4 Install Required Tools on Delegate
 
-The delegate needs Terraform installed. Create a custom delegate:
+The delegate needs Terraform and Google Cloud CLI installed. Create a custom delegate:
 
-1. Create a `Dockerfile`:
+1. Create a `Dockerfile` (this version works on both AMD64 and ARM64/Apple Silicon):
 
 ```dockerfile
 FROM harness/delegate:latest
 
 USER root
 
-# Install Terraform
-RUN apt-get update && apt-get install -y wget unzip && \
-    wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip && \
-    unzip terraform_1.6.0_linux_amd64.zip && \
+# Install Terraform (with architecture detection for ARM64/AMD64)
+RUN apt-get update && apt-get install -y wget unzip curl && \
+    ARCH=$(dpkg --print-architecture) && \
+    wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_${ARCH}.zip && \
+    unzip terraform_1.6.0_linux_${ARCH}.zip && \
     mv terraform /usr/local/bin/ && \
-    rm terraform_1.6.0_linux_amd64.zip && \
+    rm terraform_1.6.0_linux_${ARCH}.zip && \
     terraform --version
 
-# Install Google Cloud SDK (optional but recommended)
-RUN apt-get install -y apt-transport-https ca-certificates gnupg && \
-    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
-    apt-get update && apt-get install -y google-cloud-sdk
+# Install Miniconda with Python 3.11 (works on ARM64)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then CONDA_ARCH="aarch64"; else CONDA_ARCH="x86_64"; fi && \
+    curl -LO https://repo.anaconda.com/miniconda/Miniconda3-py311_24.1.2-0-Linux-${CONDA_ARCH}.sh && \
+    bash Miniconda3-py311_24.1.2-0-Linux-${CONDA_ARCH}.sh -b -p /opt/miniconda && \
+    rm Miniconda3-py311_24.1.2-0-Linux-${CONDA_ARCH}.sh && \
+    /opt/miniconda/bin/python --version
+
+# Install Google Cloud CLI
+ENV CLOUDSDK_PYTHON=/opt/miniconda/bin/python
+ENV PATH="/opt/miniconda/bin:$PATH"
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then GCLOUD_ARCH="arm"; else GCLOUD_ARCH="x86_64"; fi && \
+    curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-${GCLOUD_ARCH}.tar.gz && \
+    tar -xzf google-cloud-cli-linux-${GCLOUD_ARCH}.tar.gz && \
+    mv google-cloud-sdk /opt/ && \
+    ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
+    ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil && \
+    rm google-cloud-cli-linux-${GCLOUD_ARCH}.tar.gz && \
+    gcloud --version
 
 USER harness
 ```
 
-2. Build and run:
+2. Build the custom delegate image:
 
 ```bash
 docker build -t harness-delegate-terraform .
+```
+
+3. Verify the tools are installed:
+
+```bash
+docker run --rm harness-delegate-terraform terraform --version
+docker run --rm harness-delegate-terraform gcloud --version
+```
+
+4. Run the delegate (replace `YOUR_ACCOUNT_ID` and `YOUR_DELEGATE_TOKEN` with values from Harness UI):
+
+```bash
 docker run -d --name harness-delegate \
   -e DELEGATE_NAME=terraform-delegate \
   -e NEXT_GEN=true \
@@ -269,6 +297,7 @@ docker run -d --name harness-delegate \
   -e ACCOUNT_ID=YOUR_ACCOUNT_ID \
   -e DELEGATE_TOKEN=YOUR_DELEGATE_TOKEN \
   -e MANAGER_HOST_AND_PORT=https://app.harness.io \
+  -e LOG_STREAMING_SERVICE_URL=https://app.harness.io/log-service/ \
   harness-delegate-terraform
 ```
 
@@ -623,6 +652,181 @@ After Pipeline 1 completes:
 - **Harness Documentation**: [developer.harness.io](https://developer.harness.io)
 - **Harness Community**: [community.harness.io](https://community.harness.io)
 - **Terraform Confluent Provider**: [registry.terraform.io/providers/confluentinc/confluent](https://registry.terraform.io/providers/confluentinc/confluent)
+
+---
+
+## Execution Pipeline (Platform Team Pre-Setup)
+
+If your Platform Team has already created all service accounts with proper permissions, use the **Execution Pipeline** approach. This is the recommended approach for teams where:
+
+- Confluent Cloud API credentials are pre-provisioned
+- Connector Kafka API credentials are pre-provisioned
+- GCP Pub/Sub service account credentials are pre-provisioned
+- All secrets are already stored in Harness
+
+### Required Secrets (Pre-configured by Platform Team)
+
+| Secret Name | Description | Format |
+|-------------|-------------|--------|
+| `confluent_cloud_api_key` | Confluent Cloud API Key | Plain text |
+| `confluent_cloud_api_secret` | Confluent Cloud API Secret | Plain text |
+| `connector_kafka_api_key` | Kafka API Key for connector authentication | Plain text |
+| `connector_kafka_api_secret` | Kafka API Secret for connector authentication | Plain text |
+| `gcp_pubsub_credentials_base64` | GCP Service Account JSON (base64 encoded) | Base64 string |
+
+### How Secrets Are Pulled at Runtime
+
+The execution pipeline uses dynamic secret references that pull values at runtime:
+
+```yaml
+# In the pipeline, secrets are referenced using Harness expressions
+envVariables:
+  # Direct secret reference
+  TF_VAR_confluent_cloud_api_key: <+secrets.getValue("confluent_cloud_api_key")>
+
+  # Dynamic reference using pipeline variable
+  TF_VAR_kafka_api_key: <+secrets.getValue("<+pipeline.variables.secret_kafka_api_key>")>
+```
+
+**How it works:**
+1. Pipeline variables define which secret names to use (configurable per environment)
+2. At runtime, `<+secrets.getValue()>` fetches the actual secret value from Harness
+3. Values are injected as environment variables (`TF_VAR_*`) for Terraform
+4. Secrets are masked in logs and never exposed
+
+### Running the Execution Pipeline
+
+1. Go to **Pipelines** → **execution** folder
+2. Select **GCP PubSub Connector Execution**
+3. Click **Run**
+
+4. Fill in the runtime variables:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Run Pipeline                                                │
+├─────────────────────────────────────────────────────────────┤
+│  Configuration Variables:                                    │
+│  ├── environment:              [dev                      ]   │
+│  ├── confluent_environment_id: [env-xxxxx                ]   │
+│  ├── confluent_kafka_cluster_id: [lkc-xxxxx              ]   │
+│  ├── connector_name:           [gcp-pubsub-source-dev    ]   │
+│  ├── kafka_topic:              [your-kafka-topic         ]   │
+│  ├── gcp_project_id:           [your-gcp-project         ]   │
+│  └── pubsub_subscription_id:   [your-subscription-id     ]   │
+│                                                              │
+│  Secret References (names of Harness secrets):               │
+│  ├── secret_confluent_api_key:    [confluent_cloud_api_key]  │
+│  ├── secret_confluent_api_secret: [confluent_cloud_api_secret]│
+│  ├── secret_kafka_api_key:        [connector_kafka_api_key]  │
+│  ├── secret_kafka_api_secret:     [connector_kafka_api_secret]│
+│  └── secret_gcp_credentials:      [gcp_pubsub_credentials_base64]│
+│                                                              │
+│                              [Cancel]  [Run Pipeline]        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Pipeline Stages
+
+The execution pipeline has 5 stages:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    EXECUTION PIPELINE FLOW                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────────────┐                                   │
+│  │ 1. Pre-flight Check  │ Validates all secrets are        │
+│  │    (Auto)            │ accessible before proceeding     │
+│  └──────────┬───────────┘                                   │
+│             │                                               │
+│             ▼                                               │
+│  ┌──────────────────────┐                                   │
+│  │ 2. Terraform Plan    │ Shows what will be created       │
+│  │    (Auto)            │ Secrets injected as TF_VAR_*     │
+│  └──────────┬───────────┘                                   │
+│             │                                               │
+│             ▼                                               │
+│  ┌──────────────────────┐                                   │
+│  │ 3. Approval          │ Manual review of the plan        │
+│  │    (Manual)          │                                   │
+│  └──────────┬───────────┘                                   │
+│             │                                               │
+│             ▼                                               │
+│  ┌──────────────────────┐                                   │
+│  │ 4. Terraform Apply   │ Creates/updates the connector    │
+│  │    (Auto)            │                                   │
+│  └──────────┬───────────┘                                   │
+│             │                                               │
+│             ▼                                               │
+│  ┌──────────────────────┐                                   │
+│  │ 5. Verify Connector  │ Confirms connector is running    │
+│  │    (Auto)            │                                   │
+│  └──────────────────────┘                                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow Diagram
+
+```
+HARNESS SECRETS (Pre-configured by Platform Team)
+├── confluent_cloud_api_key ─────────────────────────┐
+├── confluent_cloud_api_secret ──────────────────────┤
+├── connector_kafka_api_key ─────────────────────────┼──► Pipeline Runtime
+├── connector_kafka_api_secret ──────────────────────┤    (secrets fetched)
+└── gcp_pubsub_credentials_base64 ───────────────────┘
+                                                      │
+                                                      ▼
+                                          ┌──────────────────────┐
+                                          │ Environment Variables│
+                                          │ TF_VAR_*             │
+                                          └──────────┬───────────┘
+                                                     │
+                                                     ▼
+                                          ┌──────────────────────┐
+                                          │ Terraform Module     │
+                                          │ gcp-pubsub-connector │
+                                          └──────────┬───────────┘
+                                                     │
+                                                     ▼
+                                          ┌──────────────────────┐
+                                          │ Confluent Cloud      │
+                                          │ Connector Running    │
+                                          └──────────────────────┘
+                                                     │
+            ┌────────────────────────────────────────┴──────────┐
+            │                                                    │
+            ▼                                                    ▼
+   ┌────────────────────┐                           ┌────────────────────┐
+   │ GCP Pub/Sub        │  ═══════════════════════► │ Kafka Topic        │
+   │ Subscription       │        DATA FLOW          │ (Confluent Cloud)  │
+   └────────────────────┘                           └────────────────────┘
+```
+
+### Expected Output
+
+When the pipeline completes successfully, you'll see:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║           GCP PUB/SUB CONNECTOR DEPLOYMENT COMPLETE          ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  Connector Name: gcp-pubsub-source-dev                       ║
+║  Environment: dev                                            ║
+║                                                              ║
+║  SOURCE (GCP Pub/Sub):                                       ║
+║    Project: your-gcp-project                                 ║
+║    Subscription: your-subscription-id                        ║
+║                                                              ║
+║  DESTINATION (Confluent Kafka):                              ║
+║    Environment: env-xxxxx                                    ║
+║    Cluster: lkc-xxxxx                                        ║
+║    Topic: your-kafka-topic                                   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+```
 
 ---
 
