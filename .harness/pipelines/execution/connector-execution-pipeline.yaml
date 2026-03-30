@@ -95,7 +95,11 @@ pipeline:
                           git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
                           cd repo/terraform/environments/dev/connector
 
-                          # Export Terraform variables
+                          # Unset any Confluent provider env vars to avoid conflicts
+                          unset CONFLUENT_CLOUD_API_KEY CONFLUENT_CLOUD_API_SECRET
+                          unset CONFLUENT_KAFKA_API_KEY CONFLUENT_KAFKA_API_SECRET CONFLUENT_KAFKA_REST_ENDPOINT
+
+                          # Export Terraform variables (TF_VAR_ prefix)
                           export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
                           export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
                           export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
@@ -217,7 +221,11 @@ pipeline:
                           git clone https://x-access-token:${GITHUB_TOKEN}@github.com/viralsiddhapura/ulta-poc-harness-secret.git repo
                           cd repo/terraform/environments/dev/connector
 
-                          # Export Terraform variables
+                          # Unset any Confluent provider env vars to avoid conflicts
+                          unset CONFLUENT_CLOUD_API_KEY CONFLUENT_CLOUD_API_SECRET
+                          unset CONFLUENT_KAFKA_API_KEY CONFLUENT_KAFKA_API_SECRET CONFLUENT_KAFKA_REST_ENDPOINT
+
+                          # Export Terraform variables (TF_VAR_ prefix)
                           export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
                           export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
                           export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
