@@ -81,6 +81,11 @@ variable "gcp_project_id" {
   type        = string
 }
 
+variable "pubsub_topic_id" {
+  description = "The GCP Pub/Sub topic ID to read from"
+  type        = string
+}
+
 variable "pubsub_subscription_id" {
   description = "The GCP Pub/Sub subscription ID to read from"
   type        = string

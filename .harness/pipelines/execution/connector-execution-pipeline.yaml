@@ -48,6 +48,12 @@ pipeline:
       required: true
       value: coastal-pointer-461217-c8
 
+    - name: pubsub_topic_id
+      type: String
+      description: "GCP Pub/Sub Topic ID"
+      required: true
+      value: ulta-ei-kafka-gcp-pub-sub-test-topic
+
     - name: pubsub_subscription_id
       type: String
       description: "GCP Pub/Sub Subscription ID"
@@ -111,6 +117,7 @@ pipeline:
                           export TF_VAR_tasks_max="<+pipeline.variables.tasks_max>"
                           export TF_VAR_output_data_format="<+pipeline.variables.output_data_format>"
                           export TF_VAR_gcp_project_id="<+pipeline.variables.gcp_project_id>"
+                          export TF_VAR_pubsub_topic_id="<+pipeline.variables.pubsub_topic_id>"
                           export TF_VAR_pubsub_subscription_id="<+pipeline.variables.pubsub_subscription_id>"
 
                           # Handle GCP credentials - base64 encode if needed
@@ -240,6 +247,7 @@ pipeline:
                           export TF_VAR_tasks_max="<+pipeline.variables.tasks_max>"
                           export TF_VAR_output_data_format="<+pipeline.variables.output_data_format>"
                           export TF_VAR_gcp_project_id="<+pipeline.variables.gcp_project_id>"
+                          export TF_VAR_pubsub_topic_id="<+pipeline.variables.pubsub_topic_id>"
                           export TF_VAR_pubsub_subscription_id="<+pipeline.variables.pubsub_subscription_id>"
 
                           # Handle GCP credentials

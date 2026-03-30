@@ -54,6 +54,7 @@ module "gcp_pubsub_connector" {
 
   # GCP configuration
   gcp_project_id         = var.gcp_project_id
+  pubsub_topic_id        = var.pubsub_topic_id
   pubsub_subscription_id = var.pubsub_subscription_id
 
   # Credentials - ALL injected from Harness Secrets (created by Pipeline 1)

@@ -45,7 +45,7 @@ resource "confluent_connector" "gcp_pubsub_source" {
 
   # Sensitive configuration - credentials injected from Harness secrets
   config_sensitive = {
-    "gcp.pubsub.credentials.json" = var.gcp_credentials_base64
+    "gcp.pubsub.credentials.json" = base64decode(var.gcp_credentials_base64)
     "kafka.api.key"               = var.kafka_api_key
     "kafka.api.secret"            = var.kafka_api_secret
   }
@@ -57,6 +57,7 @@ resource "confluent_connector" "gcp_pubsub_source" {
     "kafka.auth.mode"            = "KAFKA_API_KEY"
     "kafka.topic"                = var.kafka_topic
     "gcp.pubsub.project.id"      = var.gcp_project_id
+    "gcp.pubsub.topic.id"        = var.pubsub_topic_id
     "gcp.pubsub.subscription.id" = var.pubsub_subscription_id
     "tasks.max"                  = tostring(var.tasks_max)
     "output.data.format"         = var.output_data_format
