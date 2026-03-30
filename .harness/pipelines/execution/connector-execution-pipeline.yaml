@@ -120,10 +120,13 @@ pipeline:
                             export TF_VAR_gcp_credentials_base64=$(echo "$GCP_CREDS" | base64 | tr -d '\n')
                           fi
 
-                          # Terraform init and plan
+                          # Clean any cached terraform state and reinitialize
                           echo ""
+                          echo "Cleaning cached Terraform state..."
+                          rm -rf .terraform .terraform.lock.hcl
+
                           echo "Initializing Terraform..."
-                          terraform init -input=false -no-color
+                          terraform init -input=false -no-color -reconfigure
 
                           echo ""
                           echo "Running Terraform Plan..."
@@ -246,9 +249,12 @@ pipeline:
                             export TF_VAR_gcp_credentials_base64=$(echo "$GCP_CREDS" | base64 | tr -d '\n')
                           fi
 
-                          # Terraform init and apply
+                          # Clean any cached terraform state and reinitialize
+                          echo "Cleaning cached Terraform state..."
+                          rm -rf .terraform .terraform.lock.hcl
+
                           echo "Initializing Terraform..."
-                          terraform init -input=false -no-color
+                          terraform init -input=false -no-color -reconfigure
 
                           echo ""
                           echo "Applying Terraform..."
