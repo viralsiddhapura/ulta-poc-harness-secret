@@ -89,8 +89,6 @@ harness-terraform-poc/
 │   └── pipelines/
 │       └── execution/
 │           ├── connector-execution-pipeline.yaml   # Main pipeline
-│           ├── inputsets/
-│           │   └── dev-execution-inputset.yaml     # Dev environment inputs
 │           └── README.md                           # Pipeline documentation
 │
 ├── terraform/

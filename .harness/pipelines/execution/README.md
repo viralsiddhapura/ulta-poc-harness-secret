@@ -81,14 +81,6 @@ See the `Dockerfile` in the repository root to build a custom delegate image wit
 6. Fill in the required variable values
 7. Click **Run Pipeline**
 
-### Via Harness CLI
-
-```bash
-harness pipeline run \
-  --pipeline gcp_pubsub_connector_execution \
-  --inputset dev-execution-inputset
-```
-
 ## Data Flow After Deployment
 
 ```
