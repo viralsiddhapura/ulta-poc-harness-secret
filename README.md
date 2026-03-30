@@ -9,10 +9,9 @@ A production-ready solution for deploying GCP Pub/Sub Source Connectors to Confl
 - [Repository Structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Pipeline Options](#pipeline-options)
 - [Configuration Reference](#configuration-reference)
 - [Harness Setup Guide](#harness-setup-guide)
-- [Terraform Modules](#terraform-modules)
+- [Terraform Module](#terraform-module)
 - [Troubleshooting](#troubleshooting)
 - [Security Best Practices](#security-best-practices)
 
@@ -41,12 +40,15 @@ GCP Pub/Sub Topic → GCP Pub/Sub Subscription → Confluent Connector → Kafka
 │                              HARNESS PLATFORM                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌────────────────────────────┐       ┌────────────────────────────┐        │
-│  │  OPTION A: Full Setup      │       │  OPTION B: Execution Only  │        │
-│  │  (Pipeline 1 + Pipeline 2) │  OR   │  (Pre-provisioned secrets) │        │
-│  └────────────────────────────┘       └────────────────────────────┘        │
+│  ┌────────────────────────────────────────────────────────────────────┐     │
+│  │                    EXECUTION PIPELINE                              │     │
+│  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────────────┐    │     │
+│  │  │ Terraform    │ → │   Approval   │ → │  Terraform Apply     │    │     │
+│  │  │ Plan         │   │   Gate       │   │  (Deploy Connector)  │    │     │
+│  │  └──────────────┘   └──────────────┘   └──────────────────────┘    │     │
+│  └────────────────────────────────────────────────────────────────────┘     │
 │                                                                             │
-│  Secrets Managed:                                                           │
+│  Secrets (Pre-provisioned):                                                 │
 │  • Confluent Cloud API Key/Secret                                           │
 │  • Connector Kafka API Key/Secret                                           │
 │  • GCP Service Account Credentials (JSON)                                   │
@@ -84,51 +86,31 @@ GCP Pub/Sub Topic → GCP Pub/Sub Subscription → Confluent Connector → Kafka
 harness-terraform-poc/
 │
 ├── .harness/
-│   ├── pipelines/
-│   │   ├── execution/                              # Execution-only pipelines
-│   │   │   ├── connector-execution-pipeline.yaml   # Deploy connector (secrets pre-exist)
-│   │   │   ├── inputsets/
-│   │   │   │   └── dev-execution-inputset.yaml
-│   │   │   └── README.md
-│   │   ├── pipeline-1-service-accounts.yaml        # Create service accounts & secrets
-│   │   └── pipeline-2-connector.yaml               # Deploy connector
-│   └── inputsets/
-│       ├── dev-inputset.yaml
-│       └── prod-inputset.yaml
+│   └── pipelines/
+│       └── execution/
+│           ├── connector-execution-pipeline.yaml   # Main pipeline
+│           ├── inputsets/
+│           │   └── dev-execution-inputset.yaml     # Dev environment inputs
+│           └── README.md                           # Pipeline documentation
 │
 ├── terraform/
 │   ├── modules/
-│   │   ├── confluent-service-account/              # Confluent SA + API Keys
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   ├── gcp-service-account/                    # GCP SA + Key
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
 │   │   └── gcp-pubsub-connector/                   # GCP Pub/Sub Source Connector
 │   │       ├── main.tf
 │   │       ├── variables.tf
 │   │       └── outputs.tf
 │   └── environments/
 │       └── dev/
-│           ├── service-accounts/                   # Pipeline 1 config
-│           │   ├── main.tf
-│           │   ├── variables.tf
-│           │   └── outputs.tf
-│           └── connector/                          # Pipeline 2 / Execution config
+│           └── connector/                          # Environment configuration
 │               ├── main.tf
 │               ├── variables.tf
 │               └── outputs.tf
 │
-├── scripts/
-│   ├── setup-secrets.sh                            # Bootstrap secret setup
-│   ├── cleanup-secrets.sh                          # Secret cleanup
-│   └── store-output-to-harness.sh                  # Store TF outputs to Harness
-│
 ├── docs/
 │   └── HARNESS_UI_SETUP_GUIDE.md                   # Detailed UI setup guide
 │
+├── Dockerfile                                      # Custom delegate image
+├── .gitignore
 └── README.md                                       # This file
 ```
 
@@ -147,12 +129,13 @@ harness-terraform-poc/
 
 ### Confluent Cloud Setup
 
-Before running pipelines, ensure you have:
+Before running the pipeline, ensure you have:
 
 1. **Confluent Cloud Organization** with API access
 2. **Environment** created (note the `env-xxxxx` ID)
 3. **Kafka Cluster** created (note the `lkc-xxxxx` ID)
 4. **Cloud API Key** with OrganizationAdmin or EnvironmentAdmin permissions
+5. **Kafka API Key** for the connector to authenticate with the cluster
 
 ### GCP Setup
 
@@ -160,7 +143,7 @@ Before running pipelines, ensure you have:
 2. **Pub/Sub Topic** created
 3. **Pub/Sub Subscription** created for the topic
 4. **Service Account** with `roles/pubsub.subscriber` permission
-5. **Service Account Key** (JSON format)
+5. **Service Account Key** (JSON format, base64 encoded for Harness)
 
 ### Harness Setup
 
@@ -175,31 +158,21 @@ Before running pipelines, ensure you have:
 ### Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/<YOUR_ORG>/harness-terraform-poc.git
+git clone https://github.com/<YOUR_ORG>/<YOUR_REPO>.git
 cd harness-terraform-poc
 ```
 
 ### Step 2: Update Placeholders
 
-Update the following files with your values:
+Update the following in `.harness/pipelines/execution/connector-execution-pipeline.yaml`:
 
-**`.harness/pipelines/execution/connector-execution-pipeline.yaml`:**
 ```yaml
-variables:
-  - name: confluent_environment_id
-    value: <YOUR_CONFLUENT_ENVIRONMENT_ID>      # e.g., env-xxxxx
-  - name: confluent_kafka_cluster_id
-    value: <YOUR_KAFKA_CLUSTER_ID>              # e.g., lkc-xxxxx
-  - name: connector_name
-    value: <YOUR_CONNECTOR_NAME>                # e.g., gcp-pubsub-source
-  - name: kafka_topic
-    value: <YOUR_KAFKA_TOPIC>                   # e.g., my.kafka.topic
-  - name: gcp_project_id
-    value: <YOUR_GCP_PROJECT_ID>                # e.g., my-gcp-project
-  - name: pubsub_topic_id
-    value: <YOUR_PUBSUB_TOPIC_ID>               # e.g., my-pubsub-topic
-  - name: pubsub_subscription_id
-    value: <YOUR_PUBSUB_SUBSCRIPTION_ID>        # e.g., my-pubsub-subscription
+# Update these identifiers
+projectIdentifier: <YOUR_PROJECT_IDENTIFIER>
+orgIdentifier: <YOUR_ORG_IDENTIFIER>
+
+# Update the git clone URL in the script sections
+git clone https://x-access-token:${GITHUB_TOKEN}@github.com/<YOUR_ORG>/<YOUR_REPO>.git repo
 ```
 
 ### Step 3: Configure Harness Secrets
@@ -215,42 +188,32 @@ Add these secrets in Harness (Project → Secrets):
 | `gcp_bootstrap_credentials_json` | GCP Service Account JSON | Base64 encoded |
 | `github-token` | GitHub Personal Access Token | Plain text |
 
+**To base64 encode GCP credentials:**
+```bash
+base64 -i service-account.json | tr -d '\n'
+```
+
 ### Step 4: Create Pipeline in Harness
 
-1. Go to Harness → Pipelines → Create Pipeline
-2. Select "Import from Git"
+1. Go to Harness → Pipelines → **+ Create Pipeline**
+2. Select **Import from Git**
 3. Path: `.harness/pipelines/execution/connector-execution-pipeline.yaml`
-4. Save and Run
+4. Save
 
----
+### Step 5: Run Pipeline
 
-## Pipeline Options
-
-### Option A: Execution Pipeline (Recommended for Pre-provisioned Secrets)
-
-**Use when:** Platform team has already created all service accounts and stored secrets in Harness.
-
-**Pipeline:** `.harness/pipelines/execution/connector-execution-pipeline.yaml`
-
-**Stages:**
-1. **Terraform Plan** - Shows planned changes
-2. **Approval** - Manual approval gate
-3. **Terraform Apply** - Deploys the connector
-
-### Option B: Full Setup (Service Accounts + Connector)
-
-**Use when:** Need to create service accounts and credentials from scratch.
-
-**Pipelines:**
-1. **Pipeline 1:** `.harness/pipelines/pipeline-1-service-accounts.yaml`
-   - Creates Confluent Service Account
-   - Creates Confluent API Keys
-   - Creates GCP Service Account
-   - Stores all credentials in Harness Secrets
-
-2. **Pipeline 2:** `.harness/pipelines/pipeline-2-connector.yaml`
-   - Deploys the GCP Pub/Sub Source Connector
-   - Uses secrets created by Pipeline 1
+1. Click **Run**
+2. Fill in the required variables:
+   - `confluent_environment_id` (e.g., `env-xxxxx`)
+   - `confluent_kafka_cluster_id` (e.g., `lkc-xxxxx`)
+   - `connector_name` (e.g., `gcp-pubsub-source`)
+   - `kafka_topic` (e.g., `my.events.topic`)
+   - `gcp_project_id` (e.g., `my-gcp-project`)
+   - `pubsub_topic_id` (e.g., `my-pubsub-topic`)
+   - `pubsub_subscription_id` (e.g., `my-subscription`)
+3. Click **Run Pipeline**
+4. Review the Terraform plan
+5. **Approve** to deploy the connector
 
 ---
 
@@ -289,7 +252,7 @@ Add these secrets in Harness (Project → Secrets):
 
 1. Log in to Harness → Select your Organization
 2. Click **Projects** → **+ Project**
-3. Name: `harness-terraform-poc`
+3. Name: `your-project-name`
 4. Save
 
 ### 2. Install Harness Delegate
@@ -301,6 +264,13 @@ Add these secrets in Harness (Project → Secrets):
 5. Follow installation instructions
 6. Verify delegate is connected
 
+**Option: Use Custom Delegate Image**
+
+Build the provided Dockerfile for a delegate with Terraform pre-installed:
+```bash
+docker build -t harness-terraform-delegate:latest .
+```
+
 ### 3. Create GitHub Connector
 
 1. Go to **Project Settings** → **Connectors**
@@ -309,9 +279,8 @@ Add these secrets in Harness (Project → Secrets):
 4. Connection Type: **HTTP**
 5. URL: `https://github.com/<YOUR_ORG>`
 6. Authentication: **Username and Token**
-7. Username: Your GitHub username
-8. Token: Select secret `github-token`
-9. Test and Save
+7. Token: Select secret `github-token`
+8. Test and Save
 
 ### 4. Add Secrets
 
@@ -319,27 +288,16 @@ Add these secrets in Harness (Project → Secrets):
 2. Click **+ New Secret** → **Text**
 3. Add each secret from the [Required Secrets](#required-secrets) table
 
-### 5. Create Pipeline
+### 5. Create and Run Pipeline
 
 1. Go to **Pipelines** → **+ Create Pipeline**
-2. Name: `GCP PubSub Connector Execution`
-3. Select **Import from Git**
-4. Repository: Select your GitHub connector
-5. Branch: `main`
-6. Path: `.harness/pipelines/execution/connector-execution-pipeline.yaml`
-7. Save
-
-### 6. Run Pipeline
-
-1. Click **Run**
-2. Review variable values
-3. Click **Run Pipeline**
-4. Monitor execution
-5. Approve when prompted
+2. Select **Import from Git**
+3. Path: `.harness/pipelines/execution/connector-execution-pipeline.yaml`
+4. Save and **Run**
 
 ---
 
-## Terraform Modules
+## Terraform Module
 
 ### gcp-pubsub-connector
 
@@ -381,24 +339,29 @@ Deploys a GCP Pub/Sub Source Connector to Confluent Cloud.
 - Check secret scope (Project vs Organization)
 
 #### "Error: Delegate not found"
-- Verify delegate name matches `delegateSelectors` in pipeline
+- Verify delegate name matches `delegateSelectors` in pipeline (`terraform-delegate`)
 - Check delegate is healthy in Harness UI
 
 #### "Error: Invalid GCP Credentials"
 - Ensure GCP credentials are base64 encoded
-- Verify service account has `pubsub.subscriber` role
+- Verify service account has `roles/pubsub.subscriber` role
+- Test decoding: `echo "<base64_string>" | base64 -d`
 
 #### "Error: Confluent provider kafka credentials"
 - This is handled by renamed variables (`connector_kafka_key`)
-- Ensure using latest pipeline version
+- Ensure using the latest pipeline version from this repository
 
 #### "Error: gcp.pubsub.topic.id is required"
-- Add `pubsub_topic_id` variable to pipeline
-- Ensure Terraform module version includes this field
+- Ensure `pubsub_topic_id` variable is provided when running the pipeline
+
+#### "Error: Connector still creating after 10 minutes"
+- This is normal for first-time connector creation
+- Check Confluent Cloud UI for connector status
+- Connector provisioning can take 2-5 minutes
 
 ### Debug Mode
 
-Add to pipeline environment variables:
+Add to pipeline environment variables for verbose logging:
 ```yaml
 environmentVariables:
   - name: TF_LOG
@@ -424,18 +387,18 @@ After deployment, verify in Confluent Cloud:
    - Use secret references in pipelines
 
 2. **Least Privilege**
-   - GCP SA: Only `pubsub.subscriber` role
+   - GCP SA: Only `roles/pubsub.subscriber` role
    - Kafka API Key: Scoped to specific cluster
    - Confluent API: Environment-level access only
 
 3. **Network Security**
-   - Connector runs in Confluent Cloud (managed)
-   - No direct network access required from Harness
+   - Connector runs in Confluent Cloud (fully managed)
+   - No direct network access required from Harness delegate
 
 4. **Audit & Compliance**
    - Harness provides complete audit logs
-   - Terraform state tracks all changes
-   - Approval gates for production deployments
+   - Terraform state tracks all infrastructure changes
+   - Approval gates prevent unauthorized deployments
 
 ---
 
@@ -447,12 +410,9 @@ A `Dockerfile` is provided to build a custom Harness delegate with required tool
 # Build the delegate image
 docker build -t harness-terraform-delegate:latest .
 
-# Use in Kubernetes deployment or Docker
-docker run -d \
-  -e DELEGATE_NAME=terraform-delegate \
-  -e ACCOUNT_ID=<YOUR_HARNESS_ACCOUNT_ID> \
-  -e DELEGATE_TOKEN=<YOUR_DELEGATE_TOKEN> \
-  harness-terraform-delegate:latest
+# Push to your container registry
+docker tag harness-terraform-delegate:latest <YOUR_REGISTRY>/harness-terraform-delegate:latest
+docker push <YOUR_REGISTRY>/harness-terraform-delegate:latest
 ```
 
 **Included Tools:**
