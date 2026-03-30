@@ -58,6 +58,6 @@ module "gcp_pubsub_connector" {
 
   # Credentials - ALL injected from Harness Secrets (created by Pipeline 1)
   gcp_credentials_base64 = var.gcp_credentials_base64
-  kafka_api_key          = var.kafka_api_key
-  kafka_api_secret       = var.kafka_api_secret
+  kafka_api_key          = var.connector_kafka_key
+  kafka_api_secret       = var.connector_kafka_secret
 }

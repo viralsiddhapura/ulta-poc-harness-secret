@@ -102,8 +102,8 @@ pipeline:
                           # Export Terraform variables (TF_VAR_ prefix)
                           export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
                           export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
-                          export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
-                          export TF_VAR_kafka_api_secret="$KAFKA_API_SECRET"
+                          export TF_VAR_connector_kafka_key="$CONNECTOR_KEY"
+                          export TF_VAR_connector_kafka_secret="$CONNECTOR_SECRET"
                           export TF_VAR_confluent_environment_id="<+pipeline.variables.confluent_environment_id>"
                           export TF_VAR_confluent_kafka_cluster_id="<+pipeline.variables.confluent_kafka_cluster_id>"
                           export TF_VAR_connector_name="<+pipeline.variables.connector_name>"
@@ -146,10 +146,10 @@ pipeline:
                       - name: CONFLUENT_API_SECRET
                         type: Secret
                         value: confluent_cloud_api_secret
-                      - name: KAFKA_API_KEY
+                      - name: CONNECTOR_KEY
                         type: Secret
                         value: connector_kafka_api_key
-                      - name: KAFKA_API_SECRET
+                      - name: CONNECTOR_SECRET
                         type: Secret
                         value: connector_kafka_api_secret
                       - name: GCP_CREDS
@@ -231,8 +231,8 @@ pipeline:
                           # Export Terraform variables (TF_VAR_ prefix)
                           export TF_VAR_confluent_cloud_api_key="$CONFLUENT_API_KEY"
                           export TF_VAR_confluent_cloud_api_secret="$CONFLUENT_API_SECRET"
-                          export TF_VAR_kafka_api_key="$KAFKA_API_KEY"
-                          export TF_VAR_kafka_api_secret="$KAFKA_API_SECRET"
+                          export TF_VAR_connector_kafka_key="$CONNECTOR_KEY"
+                          export TF_VAR_connector_kafka_secret="$CONNECTOR_SECRET"
                           export TF_VAR_confluent_environment_id="<+pipeline.variables.confluent_environment_id>"
                           export TF_VAR_confluent_kafka_cluster_id="<+pipeline.variables.confluent_kafka_cluster_id>"
                           export TF_VAR_connector_name="<+pipeline.variables.connector_name>"
@@ -280,10 +280,10 @@ pipeline:
                       - name: CONFLUENT_API_SECRET
                         type: Secret
                         value: confluent_cloud_api_secret
-                      - name: KAFKA_API_KEY
+                      - name: CONNECTOR_KEY
                         type: Secret
                         value: connector_kafka_api_key
-                      - name: KAFKA_API_SECRET
+                      - name: CONNECTOR_SECRET
                         type: Secret
                         value: connector_kafka_api_secret
                       - name: GCP_CREDS

@@ -83,14 +83,14 @@ variable "gcp_credentials_base64" {
   sensitive   = true
 }
 
-variable "kafka_api_key" {
-  description = "Kafka API key (from Pipeline 1)"
+variable "connector_kafka_key" {
+  description = "Kafka API key for connector (from Pipeline 1)"
   type        = string
   sensitive   = true
 }
 
-variable "kafka_api_secret" {
-  description = "Kafka API secret (from Pipeline 1)"
+variable "connector_kafka_secret" {
+  description = "Kafka API secret for connector (from Pipeline 1)"
   type        = string
   sensitive   = true
 }
